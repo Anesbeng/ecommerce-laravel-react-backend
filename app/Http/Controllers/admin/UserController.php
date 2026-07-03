@@ -29,7 +29,7 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'name'  => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $id,
-            'role'  => 'required|in:user,admin',
+            'role'  => 'required|in:customer,admin',
         ]);
         if ($validator->fails()) {
             return response()->json(['status' => 400, 'errors' => $validator->errors()]);
