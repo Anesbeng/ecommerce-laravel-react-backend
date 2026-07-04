@@ -36,6 +36,10 @@ Route::get('get-product/{id}', [FproductController::class, 'getproduct']);
 Route::post('register', [FauthController::class, 'register']);
 Route::post('login', [FauthController::class, 'authenticate']);
 
+// Public read-only shipping info — anyone checking out needs to see this,
+// but only admins can change it (that stays under the admin/shipping PUT route below)
+Route::get('shipping', [ShippingController::class, 'index']);
+
 
 Route::group(['middleware' => ['auth:sanctum','checkuser']], function () {
 Route::post('save-order', [SaveOrderController::class, 'saveOrder']);

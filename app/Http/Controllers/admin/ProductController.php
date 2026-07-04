@@ -47,7 +47,7 @@ class ProductController extends Controller
     // ─────────────────────────────────────────────────────────────────────
     function index()
     {
-        $products = Product::with('images')->orderBy('created_at', 'DESC')->get();
+        $products = Product::with(['images', 'sizes'])->orderBy('created_at', 'DESC')->get();
 
         return response()->json([
             'status' => 200,
@@ -66,14 +66,13 @@ class ProductController extends Controller
             'price'          => 'required|numeric',
             'category_id'    => 'required|integer',
             'sku'            => 'required|unique:products,sku',
-            'qty'            => 'required|integer',
             'status'         => 'required|integer',
             'is_featured'    => 'required|in:0,1',
             'image'          => 'required|image|mimes:jpg,jpeg,png|max:2048',
             'images.*'       => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-            'product_sizes'  => 'nullable|array',
-            'product_sizes.*'=> 'nullable|integer|exists:sizes,id',
-            
+            'sizes'          => 'required|array|min:1',
+            'sizes.*.size_id'=> 'required|integer|exists:sizes,id',
+            'sizes.*.qty'    => 'required|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -91,7 +90,6 @@ class ProductController extends Controller
         $product->short_description = $request->short_description;
         $product->category_id       = $request->category_id;
         $product->brand_id          = $request->brand_id;
-        $product->qty               = $request->qty;
         $product->sku               = $request->sku;
         $product->barcode           = $request->barcode;
         $product->status            = $request->status;
@@ -123,13 +121,12 @@ class ProductController extends Controller
             }
         }
 
-        // ── Sizes — sync the selected size IDs into the pivot table ──────
-        // Product model must have: public function sizes() { return $this->belongsToMany(Size::class, 'product_sizes'); }
-        if ($request->has('product_sizes') && is_array($request->product_sizes)) {
-            $product->sizes()->sync($request->product_sizes);
-        } else {
-            $product->sizes()->detach(); // no sizes selected — clear all
+        // ── Sizes — sync each size with its own stock quantity ───────────
+        $sizesData = [];
+        foreach ($request->sizes as $sizeRow) {
+            $sizesData[$sizeRow['size_id']] = ['qty' => (int) $sizeRow['qty']];
         }
+        $product->sizes()->sync($sizesData);
 
         return response()->json([
             'status'  => 200,
@@ -177,7 +174,6 @@ class ProductController extends Controller
             'price'            => 'required|numeric',
             'category_id'      => 'required|integer',
             'sku'              => 'required|unique:products,sku,' . $id,
-            'qty'              => 'required|integer',
             'status'           => 'required|integer',
             'is_featured'      => 'required|in:0,1',
             'images.*'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
@@ -185,8 +181,9 @@ class ProductController extends Controller
             'removed_images.*' => 'nullable|string',
             'kept_images'      => 'nullable|array',
             'kept_images.*'    => 'nullable|string',
-            'product_sizes'    => 'nullable|array',
-            'product_sizes.*'  => 'nullable|integer|exists:sizes,id',
+            'sizes'            => 'required|array|min:1',
+            'sizes.*.size_id'  => 'required|integer|exists:sizes,id',
+            'sizes.*.qty'      => 'required|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -204,7 +201,6 @@ class ProductController extends Controller
         $product->short_description = $request->short_description;
         $product->category_id       = $request->category_id;
         $product->brand_id          = $request->brand_id;
-        $product->qty               = $request->qty;
         $product->sku               = $request->sku;
         $product->barcode           = $request->barcode;
         $product->status            = $request->status;
@@ -269,14 +265,14 @@ class ProductController extends Controller
 
         $product->save();
 
-        // ── STEP 4: Sync sizes ────────────────────────────────────────────
+        // ── STEP 4: Sync sizes with per-size stock quantities ─────────────
         // sync() replaces all existing rows in product_sizes for this product
         // with the newly submitted array — no manual deletes needed.
-        if ($request->has('product_sizes') && is_array($request->product_sizes)) {
-            $product->sizes()->sync($request->product_sizes);
-        } else {
-            $product->sizes()->detach(); // user unchecked everything
+        $sizesData = [];
+        foreach ($request->sizes as $sizeRow) {
+            $sizesData[$sizeRow['size_id']] = ['qty' => (int) $sizeRow['qty']];
         }
+        $product->sizes()->sync($sizesData);
 
         return response()->json([
             'status'  => 200,

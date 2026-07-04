@@ -30,6 +30,7 @@ class SaveOrderController extends Controller
             'state'   => 'required|string|max:100',
             'cart'    => 'required|array|min:1',
             'cart.*.product_id' => 'required|exists:products,id',
+            'cart.*.size_id'    => 'required|exists:sizes,id',
             'cart.*.qty'        => 'required|integer|min:1',
         ]);
 
@@ -41,7 +42,8 @@ class SaveOrderController extends Controller
             ], 400);
         }
 
-        $order = DB::transaction(function () use ($request) {
+        try {
+            $order = DB::transaction(function () use ($request) {
             $subtotal = 0;
             $lineItems = [];
 
@@ -49,6 +51,31 @@ class SaveOrderController extends Controller
             foreach ($request->cart as $item) {
                 $product = Product::findOrFail($item['product_id']);
                 $qty = (int) $item['qty'];
+
+                // lockForUpdate() locks this exact size row until the transaction
+                // finishes, so two customers buying the last "M" at the same
+                // time can't both succeed
+                $pivot = DB::table('product_sizes')
+                    ->where('product_id', $item['product_id'])
+                    ->where('size_id', $item['size_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$pivot) {
+                    throw new \Exception(
+                        "That size isn't available for \"{$product->title}\"."
+                    );
+                }
+
+                if ($pivot->qty < $qty) {
+                    throw new \Exception(
+                        "Not enough stock for \"{$product->title}\" in that size. Only {$pivot->qty} left."
+                    );
+                }
+
+                DB::table('product_sizes')
+                    ->where('id', $pivot->id)
+                    ->update(['qty' => $pivot->qty - $qty]);
 
                 $unitPrice = $product->price;
                 $lineTotal = $unitPrice * $qty;
@@ -58,6 +85,7 @@ class SaveOrderController extends Controller
                     'product_id' => $product->id,
                     'name'       => $product->title,
                     'size'       => $item['size'] ?? null,
+                    'size_id'    => $item['size_id'],
                     'unit_price' => $unitPrice,
                     'price'      => $lineTotal,
                     'qty'        => $qty,
@@ -98,6 +126,7 @@ class SaveOrderController extends Controller
                 $orderitem->product_id = $line['product_id'];
                 $orderitem->name       = $line['name'];
                 $orderitem->size       = $line['size'];
+                $orderitem->size_id    = $line['size_id'];
                 $orderitem->price      = $line['price'];
                 $orderitem->unit_price = $line['unit_price'];
                 $orderitem->qty        = $line['qty'];
@@ -106,6 +135,12 @@ class SaveOrderController extends Controller
 
             return $order;
         });
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => '400',
+                'message' => $e->getMessage(),
+            ], 400);
+        }
 
         return response()->json(['status' => '200', 'message' => 'Order saved successfully']);
     }
