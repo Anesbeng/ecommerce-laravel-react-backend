@@ -17,7 +17,7 @@ class FauthController extends Controller
         $validate = Validator::make($request->all(),[
             'name' => 'required',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required',
+            'password' => 'required|min:8',
         ]);
         if ($validate->fails()) {
             return response()->json(['status' => 400, 'errors' => $validate->errors()]);

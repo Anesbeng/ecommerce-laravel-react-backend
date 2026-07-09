@@ -16,6 +16,7 @@ use App\Http\Controllers\admin\OrderController as AdminOrderController;
 use App\Http\Controllers\front\ProfileController;
 use App\Http\Controllers\admin\ShippingController;
 use App\Http\Controllers\admin\UserController;
+use App\Http\Controllers\PaymentController;
 
 
 
@@ -23,8 +24,7 @@ use App\Http\Controllers\admin\UserController;
 
 
 
-
-Route::post('/admin/login', [Authcontroller::class, 'authenticate']);
+Route::post('/admin/login', [Authcontroller::class, 'authenticate'])->middleware('throttle:6,1');
 
 Route::get('latest-products', [FproductController::class, 'LastestProducts']);
 Route::get('featured-products', [FproductController::class, 'FeaturedProducts']);
@@ -33,8 +33,8 @@ Route::get('brands-products', [FproductController::class, 'getBrands']);
 Route::get('get-products', [FproductController::class, 'getproducts']);
 
 Route::get('get-product/{id}', [FproductController::class, 'getproduct']);
-Route::post('register', [FauthController::class, 'register']);
-Route::post('login', [FauthController::class, 'authenticate']);
+Route::post('register', [FauthController::class, 'register'])->middleware('throttle:6,1');
+Route::post('login', [FauthController::class, 'authenticate'])->middleware('throttle:6,1');
 
 // Public read-only shipping info — anyone checking out needs to see this,
 // but only admins can change it (that stays under the admin/shipping PUT route below)
@@ -42,11 +42,14 @@ Route::get('shipping', [ShippingController::class, 'index']);
 
 
 Route::group(['middleware' => ['auth:sanctum','checkuser']], function () {
+
 Route::post('save-order', [SaveOrderController::class, 'saveOrder']);
 Route::get('orders', [OrderController::class, 'index']);
 Route::get('profile', [ProfileController::class, 'show']);
 Route::put('profile', [ProfileController::class, 'update']);
 Route::post('change-password', [ProfileController::class, 'changePassword']);
+Route::post('payment/initiate/{order}', [PaymentController::class, 'initiate']);
+
 });
 
 
