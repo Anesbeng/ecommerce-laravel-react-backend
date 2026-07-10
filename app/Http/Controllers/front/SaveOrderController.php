@@ -142,6 +142,11 @@ class SaveOrderController extends Controller
             ], 400);
         }
 
-        return response()->json(['status' => '200', 'message' => 'Order saved successfully']);
+        return response()->json([
+            'status'      => '200',
+            'message'     => 'Order saved successfully',
+            'order_id'    => $order->id,
+            'grand_total' => $order->grand_total,
+        ]);
     }
 }

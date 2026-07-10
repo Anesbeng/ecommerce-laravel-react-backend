@@ -19,4 +19,13 @@ class OrderController extends Controller
 
         return response()->json($orders);
     }
+
+    public function show(Request $request, $id)
+    {
+        $order = $request->user()
+            ->orders()
+            ->findOrFail($id);
+
+        return response()->json($order);
+    }
 }

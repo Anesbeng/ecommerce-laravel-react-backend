@@ -17,12 +17,14 @@ use App\Http\Controllers\front\ProfileController;
 use App\Http\Controllers\admin\ShippingController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ChargilyWebhookController;
 
 
 
 
 
 
+Route::post('webhooks/chargily', [ChargilyWebhookController::class, 'handle']);
 
 Route::post('/admin/login', [Authcontroller::class, 'authenticate'])->middleware('throttle:6,1');
 
@@ -42,7 +44,6 @@ Route::get('shipping', [ShippingController::class, 'index']);
 
 
 Route::group(['middleware' => ['auth:sanctum','checkuser']], function () {
-
 Route::post('save-order', [SaveOrderController::class, 'saveOrder']);
 Route::get('orders', [OrderController::class, 'index']);
 Route::get('profile', [ProfileController::class, 'show']);
