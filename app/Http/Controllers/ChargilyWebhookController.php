@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Mail\OrderConfirmationMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class ChargilyWebhookController extends Controller
 {
@@ -53,10 +55,12 @@ class ChargilyWebhookController extends Controller
         switch ($event->type) {
             case 'checkout.paid':
                 $order->update(['payment_status' => 'paid']);
+                Mail::to($order->email)->send(new OrderConfirmationMail($order));
                 break;
 
             case 'checkout.failed':
             case 'checkout.canceled':
+            case 'checkout.expired':
                 // Stock was already reserved when the order was first
                 // placed (in SaveOrderController), so a failed/canceled
                 // payment needs to give that stock back — same pattern
@@ -74,6 +78,13 @@ class ChargilyWebhookController extends Controller
                     $order->payment_status = 'not_paid';
                     $order->save();
                 });
+                break;
+
+            default:
+                // Don't silently ignore event types we haven't handled
+                // yet — log the real name so we can add proper handling
+                // for it instead of guessing.
+                Log::info("Chargily webhook: unhandled event type '{$event->type}' for checkout {$checkout->id}");
                 break;
         }
 

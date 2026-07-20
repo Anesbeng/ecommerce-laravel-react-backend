@@ -18,11 +18,15 @@ use App\Http\Controllers\admin\ShippingController;
 use App\Http\Controllers\admin\UserController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ChargilyWebhookController;
+use App\Http\Controllers\front\PasswordResetController;
+ 
 
 
 
 
 
+Route::post('forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:6,1');
+Route::post('reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:6,1');
 
 Route::post('webhooks/chargily', [ChargilyWebhookController::class, 'handle']);
 

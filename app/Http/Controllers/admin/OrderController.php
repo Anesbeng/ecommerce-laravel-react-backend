@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use Illuminate\Support\Facades\DB;
+use App\Mail\OrderStatusChangedMail;
+use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
@@ -67,6 +69,8 @@ class OrderController extends Controller
 
             $order->status = $newStatus;
             $order->save();
+
+            Mail::to($order->email)->send(new OrderStatusChangedMail($order));
         });
 
         return response()->json(['status' => 200, 'message' => 'Order status updated']);

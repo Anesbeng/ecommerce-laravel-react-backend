@@ -10,6 +10,8 @@ use App\Models\Product;
 use App\Models\ShippingSetting;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class SaveOrderController extends Controller
 {
@@ -76,6 +78,22 @@ class SaveOrderController extends Controller
                 DB::table('product_sizes')
                     ->where('id', $pivot->id)
                     ->update(['qty' => $pivot->qty - $qty]);
+
+                $newQty = $pivot->qty - $qty;
+                if ($newQty <= 5) {
+                    // Fire-and-forget style alert — a failure here should
+                    // never block the customer's order, so it's wrapped
+                    // in its own try/catch.
+                    try {
+                        Http::post(env('MAKE_LOW_STOCK_WEBHOOK_URL'), [
+                            'product'   => $product->title,
+                            'size'      => $item['size'] ?? null,
+                            'remaining' => $newQty,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::warning("Low-stock webhook failed: {$e->getMessage()}");
+                    }
+                }
 
                 $unitPrice = $product->price;
                 $lineTotal = $unitPrice * $qty;
